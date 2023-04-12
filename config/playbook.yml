@@ -1,0 +1,133 @@
+- hosts: all
+  become: true
+  tasks:
+  - name: Install Wireguard & its tools
+    ansible.builtin.apt:
+      pkg:
+        - wireguard
+        - wireguard-tools
+      state: present
+
+  - name: Wireguard is Initilised
+    stat:
+      path: /etc/wireguard/private.key
+    register: wg_exist    
+
+  - name: Slurp the privateKey
+    slurp:
+      src:  /etc/wireguard/private.key
+    register: wg_privatekey
+    when: wg_exist.stat.exists    
+
+  - name: Slurp the public key
+    slurp:
+      src:  /etc/wireguard/public.key
+    register: wg_publickey
+    when: wg_exist.stat.exists
+
+  - name: Generate Wireguard PrivateKey
+    command: >-
+      wg genkey
+    register: wg_privatekey
+    when : not wg_exist.stat.exists
+
+  - name: Debug wg_privatekey
+    debug: 
+      var: wg_privatekey
+
+  - name: Write the PrivateKey
+    copy:
+      dest: /etc/wireguard/private.key
+      content: "{{ wg_privatekey.stdout }}"
+    when : not wg_exist.stat.exists      
+
+  - name: Generate Public Key
+    shell: >- 
+      cat /etc/wireguard/private.key | wg pubkey      
+    register: wg_publickey
+    when : not wg_exist.stat.exists    
+    
+  - name: Debug wg_publickey
+    debug: 
+      var: wg_publickey
+
+  - name: Write the PrivateKey
+    copy:
+      dest: /etc/wireguard/public.key
+      content: "{{ wg_publickey.stdout }}"
+    when : not wg_exist.stat.exists      
+
+  - name: Wireguard Config Exists
+    stat:
+      path: /etc/wireguard/wg0.conf
+    register: wg_config
+  
+  # At this point the Private Key and the Public Keys should be available. 
+  # If not then there is an issue in the code.
+  - name: Slurp the private key
+    slurp:
+      src:  /etc/wireguard/private.key
+    register: wg_privatekey
+
+  - name: Slurp the public key
+    slurp:
+      src:  /etc/wireguard/public.key
+    register: wg_publickey
+
+  - name: Write Wireguard Config
+    copy:
+      dest: /etc/wireguard/wg0.conf
+      content: |-
+        [Interface]
+        PrivateKey = {{ wg_privatekey.content | b64decode }}
+        Address = {{ ansible_eth1.ipv4.address }}/24
+        ListenPort = 51820
+
+  - name: Enable UFW Firewall
+    community.general.ufw:
+      state: enabled
+
+  - name: Set Firewall Logging
+    community.general.ufw:
+      logging: 'on'  
+
+  - name: Enable Wireguard
+    community.general.ufw:
+      rule: allow
+      port: '51820'
+      proto: "{{ item }}"
+      comment: Enable Wireguard
+    loop:
+      - tcp
+      - udp      
+
+  - name: Enable SSH
+    community.general.ufw:
+      rule: allow
+      port: '22'
+      proto: "{{ item }}"
+      comment: Enable SSHD
+    loop:
+      - tcp
+      - udp
+
+    
+
+  - name: Add IP Forward
+    sysctl:
+      name: net.ipv4.ip_forward
+      value: '1'
+      sysctl_set: true
+      state: present
+      reload: true
+
+  - name: Just force systemd to reread configs 
+    ansible.builtin.systemd:
+      daemon_reload: true
+
+  - name: Enable and Start wg-quick@wg0 systemd service
+    ansible.builtin.systemd:
+      name: wg-quick@wg0
+      state: started
+      enabled: true
+
