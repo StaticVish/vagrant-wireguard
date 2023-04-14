@@ -1,7 +1,6 @@
 $OS_IMAGE = "roboxes/ubuntu2004"
 $BOX_VERSION = "4.2.14"
 $SERVER_NAME = "wireguard-server"
-$WG_IPADDRESS = "10.99.135.144"
 
 required_plugins = %w(vagrant-reload )
 
@@ -26,7 +25,6 @@ Vagrant.configure("2") do |config|
       rsync__exclude: ".git/",
       rsync__args: ["--verbose", "--archive", "--compress"]
 
-    master.vm.network "private_network", ip: $WG_IPADDRESS
     master.vm.hostname = $SERVER_NAME
     master.vm.provider :virtualbox do |v|
       v.customize ["modifyvm", :id, "--memory", 2048]

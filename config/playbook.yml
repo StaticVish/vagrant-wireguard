@@ -80,7 +80,7 @@
       content: |-
         [Interface]
         PrivateKey = {{ wg_privatekey.content | b64decode }}
-        Address = {{ ansible_eth1.ipv4.address }}/24
+        Address = {{ ansible_eth0.ipv4.address }}/24
         ListenPort = 51820
 
   - name: Enable UFW Firewall
