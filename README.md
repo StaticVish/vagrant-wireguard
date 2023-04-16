@@ -11,5 +11,8 @@ A fun project to setup a Wireguard VPN Server running out of Vagrant.  The confi
 2. Portforward the port fromm the router
 3. Share the public key which will be generated in the VM.
 
+## TODO:
+1. Port Forwarding via Vagrant
+
 ## Developer:
 Fat Dragon - Static Vish
